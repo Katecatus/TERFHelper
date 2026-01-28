@@ -1,0 +1,79 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Version to release (e.g., 1.0.0)"
+        required: true
+      is_prerelease:
+        description: "Is this a pre-release?"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+      
+    - name: Determine Version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "VERSION=${{ inputs.release_version }}" >> $GITHUB_ENV
+          echo "TAG=v${{ inputs.release_version }}" >> $GITHUB_ENV
+          echo "IS_NIGHTLY=false" >> $GITHUB_ENV
+        else
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          # Get date in YYYYMMDD format
+          DATE=$(date +'%Y%m%d')
+          # Version format: 1.0-nightly-YYYYMMDD-sha
+          # We'll default base to 1.0 for nightly if not easily extractable, 
+          # or just use the date/sha as the version identifier to be safe.
+          echo "VERSION=nightly-${DATE}-${SHORT_SHA}" >> $GITHUB_ENV
+          echo "TAG=nightly-${DATE}-${SHORT_SHA}" >> $GITHUB_ENV
+          echo "IS_NIGHTLY=true" >> $GITHUB_ENV
+        fi
+
+    - name: Build with Gradle
+      run: ./gradlew build -Pversion=${{ env.VERSION }}
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: TERFHelper-${{ env.VERSION }}
+        path: build/libs/*.jar
+
+    - name: Release Nightly
+      if: env.IS_NIGHTLY == 'true'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ env.TAG }}
+        name: Nightly Build ${{ env.VERSION }}
+        files: build/libs/*.jar
+        prerelease: true
+        
+    - name: Release Stable
+      if: env.IS_NIGHTLY == 'false'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ env.TAG }}
+        name: Release ${{ env.VERSION }}
+        files: build/libs/*.jar
+        prerelease: ${{ inputs.is_prerelease }}
