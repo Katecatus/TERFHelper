@@ -4,3 +4,7 @@ main: dev.kate.terf.TERFHelper
 api-version: '1.21'
 authors: [ Kate ]
 description: Troty Energy Research Facility Helper
+commands:
+  attributegc:
+    description: Cleans and resets player attributes.
+    usage: /attributegc [player]

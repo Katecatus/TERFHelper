@@ -6,12 +6,11 @@ public final class TERFHelper extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        // Plugin startup logic
-
+        getCommand("attributegc").setExecutor(new dev.kate.terf.commands.AttributeGCCommand());
     }
 
     @Override
     public void onDisable() {
-        // Plugin shutdown logic
+
     }
 }
